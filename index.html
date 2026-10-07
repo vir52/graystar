@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>格雷</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{
+  width:100%;
+  height:100%;
+  background:#000000;
+  overflow:hidden;
+}
+body{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+}
+/* 第一个笑脸 */
+.smile-normal-first{
+  font-size:120px;
+  color:#ffffff;
+  font-family:system-ui, sans-serif;
+  opacity: 0;
+  transition: opacity 0.8s ease;
+}
+.smile-normal-first.show{
+  opacity:1;
+}
+/* 表情+文字区域 */
+.stage-two{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  opacity:0;
+  transition: opacity 0.8s ease;
+  display:none;
+}
+.stage-two.show{
+  opacity:1;
+  display:flex;
+}
+.face{
+  font-size: 80px;
+  color:#fff;
+  transition: opacity 0.5s ease;
+}
+.text-tip{
+  font-size:20px;
+  color:#fff;
+  margin-top:20px;
+  transition: opacity 0.5s ease;
+  text-align:center;
+  padding: 0 24px;
+  line-height: 1.6;
+}
+/* 烟花层：初始隐藏 */
+#fireworks-layer{
+  position:fixed;
+  inset:0;
+  opacity:0;
+  transition: opacity 1.5s ease;
+  pointer-events:none;   /* 剧情阶段不接收点击 */
+  z-index:1;
+}
+#fireworks-layer.show{
+  opacity:1;
+  pointer-events:auto;   /* 烟花阶段接收点击 */
+}
+#fireworks-layer canvas{
+  position:absolute; top:0; left:0;
+  mix-blend-mode: lighten;
+}
+#hint{
+  position:fixed; left:50%; bottom:24px;
+  transform:translateX(-50%);
+  color:rgba(255,255,255,.45);
+  font:14px/1.4 "Microsoft YaHei", Arial, sans-serif;
+  letter-spacing:1px; pointer-events:none;
+  z-index:10;
+  opacity:0;
+  transition: opacity 1s ease;
+}
+#hint.show{ opacity:1; }
+/* 剧情层置于最上，烟花出现后淡出 */
+#story-layer{
+  position:fixed;
+  inset:0;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  z-index:2;
+  transition: opacity 1.2s ease;
+}
+#story-layer.fade-out{
+  opacity:0;
+  pointer-events:none;
+}
+</style>
+</head>
+<body>
+
+<!-- 剧情层 -->
+<div id="story-layer">
+  <div class="smile-normal-first">:)</div>
+  <div class="stage-two">
+    <div class="face">😊</div>
+    <div class="text-tip">终于找到你了</div>
+  </div>
+</div>
+
+<!-- 烟花层 -->
+<div id="fireworks-layer">
+  <canvas id="trails-canvas"></canvas>
+  <canvas id="main-canvas"></canvas>
+</div>
+<div id="hint">点击屏幕任意位置增加烟花 · 按 P 暂停</div>
+
+<script>
+/* ============================================================
+   第一部分：格雷剧情（点击 8 次推进，第 9 次淡出接入烟花）
+   ============================================================ */
+let step = 0;
+let storyEnded = false;
+
+document.body.onclick = function(){
+  if (storyEnded) return;
+
+  const firstSmile = document.querySelector('.smile-normal-first');
+  const stageTwo = document.querySelector('.stage-two');
+  const face = document.querySelector('.face');
+  const tipText = document.querySelector('.text-tip');
+
+  if(step === 0){
+    firstSmile.classList.add('show');
+    step = 1;
+  }else if(step === 1){
+    firstSmile.style.display = "none";
+    stageTwo.style.display = "flex";
+    setTimeout(()=>{ stageTwo.classList.add('show'); }, 10);
+    step = 2;
+  }else if(step === 2){
+    tipText.style.opacity = 0;
+    setTimeout(()=>{
+      tipText.innerText = "怎么了？看傻了？";
+      tipText.style.opacity = 1;
+    }, 300);
+    step = 3;
+  }else if(step ===3){
+    tipText.style.opacity = 0;
+    setTimeout(()=>{
+      tipText.innerText = "我毁了自己的肉身，将意识剥离了出来，附着在你的手机上";
+      tipText.style.opacity = 1;
+    },300);
+    step = 4;
+  }else if(step ===4){
+    face.style.opacity = 0;
+    tipText.style.opacity = 0;
+    setTimeout(()=>{
+      face.innerText = "😶";
+      tipText.innerText = "意外的顺利";
+      face.style.opacity = 1;
+      tipText.style.opacity = 1;
+    },300);
+    step = 5;
+  }else if(step ===5){
+    face.style.opacity = 0;
+    tipText.style.opacity = 0;
+    setTimeout(()=>{
+      face.innerText = "😊";
+      tipText.innerText = "想我了吗？";
+      face.style.opacity = 1;
+      tipText.style.opacity = 1;
+    },300);
+    step = 6;
+  }else if(step ===6){
+    face.style.opacity = 0;
+    tipText.style.opacity = 0;
+    setTimeout(()=>{
+      face.style.display = "none";
+      tipText.innerText = "……";
+      tipText.style.opacity = 1;
+    },300);
+    step = 7;
+  }else if(step ===7){
+    tipText.style.opacity = 0;
+    setTimeout(()=>{
+      tipText.innerText = "格雷";
+      tipText.style.opacity = 1;
+    },300);
+    step = 8;
+  }else if(step ===8){
+    // 第 9 次点击：格雷淡出，接入烟花
+    storyEnded = true;
+    document.body.onclick = null;
+
+    const storyLayer = document.getElementById('story-layer');
+    storyLayer.classList.add('fade-out');
+
+    // 等剧情层淡出后再显示烟花
+    setTimeout(() => {
+      const fwLayer = document.getElementById('fireworks-layer');
+      fwLayer.classList.add('show');
+      document.getElementById('hint').classList.add('show');
+      startFireworks();
+    }, 900);
+  }
+};
+
+/* ============================================================
+   第二部分：烟花引擎（你确认可用的单文件版）
+   ============================================================ */
+
+const IS_MOBILE = window.innerWidth <= 640;
+const MAX_WIDTH = 7680, MAX_HEIGHT = 4320;
+const GRAVITY = 0.9;
+const PI_2 = Math.PI * 2;
+const PI_HALF = Math.PI * 0.5;
+let simSpeed = 1;
+let stageW, stageH;
+
+const COLOR = {
+  Red:'#ff0043', Green:'#14fc56', Blue:'#1e7fff',
+  Purple:'#e60aff', Gold:'#ffbf36', White:'#ffffff'
+};
+const INVISIBLE = '_INVISIBLE_';
+const COLOR_CODES = Object.keys(COLOR).map(k => COLOR[k]);
+const COLOR_CODES_W_INVIS = [...COLOR_CODES, INVISIBLE];
+
+function randomColorSimple() {
+  return COLOR_CODES[(Math.random() * COLOR_CODES.length) | 0];
+}
+let lastColor;
+function randomColor(opt) {
+  opt = opt || {};
+  let c = randomColorSimple();
+  if (opt.limitWhite && c === COLOR.White && Math.random() < 0.6) c = randomColorSimple();
+  if (opt.notSame) { while (c === lastColor) c = randomColorSimple(); }
+  else if (opt.notColor) { while (c === opt.notColor) c = randomColorSimple(); }
+  lastColor = c;
+  return c;
+}
+function whiteOrGold() { return Math.random() < 0.5 ? COLOR.Gold : COLOR.White; }
+function makePistilColor(c) {
+  return (c === COLOR.White || c === COLOR.Gold) ? randomColor({notColor:c}) : whiteOrGold();
+}
+
+function createCollection() {
+  const o = {};
+  COLOR_CODES_W_INVIS.forEach(c => o[c] = []);
+  return o;
+}
+
+const Star = {
+  drawWidth: 3, airDrag: 0.98, airDragHeavy: 0.992,
+  active: createCollection(), _pool: [],
+  add(x, y, color, angle, speed, life, offX, offY) {
+    const s = this._pool.pop() || {};
+    s.visible = true; s.heavy = false;
+    s.x = x; s.y = y; s.prevX = x; s.prevY = y;
+    s.color = color;
+    s.speedX = Math.sin(angle) * speed + (offX || 0);
+    s.speedY = Math.cos(angle) * speed + (offY || 0);
+    s.life = life; s.fullLife = life;
+    s.spinAngle = Math.random() * PI_2;
+    s.spinSpeed = 0.8; s.spinRadius = 0;
+    s.sparkFreq = 0; s.sparkSpeed = 1; s.sparkTimer = 0;
+    s.sparkColor = color; s.sparkLife = 750; s.sparkLifeVariation = 0.25;
+    s.strobe = false;
+    s.onDeath = null; s.secondColor = null;
+    s.transitionTime = 0; s.colorChanged = false;
+    s.updateFrame = 0;
+    this.active[color].push(s);
+    return s;
+  },
+  returnInstance(s) {
+    if (s.onDeath) s.onDeath(s);
+    s.onDeath = null; s.secondColor = null;
+    s.transitionTime = 0; s.colorChanged = false;
+    this._pool.push(s);
+  }
+};
+
+const Spark = {
+  drawWidth: 0, airDrag: 0.9,
+  active: createCollection(), _pool: [],
+  add(x, y, color, angle, speed, life) {
+    const s = this._pool.pop() || {};
+    s.x = x; s.y = y; s.prevX = x; s.prevY = y;
+    s.color = color;
+    s.speedX = Math.sin(angle) * speed;
+    s.speedY = Math.cos(angle) * speed;
+    s.life = life;
+    this.active[color].push(s);
+    return s;
+  },
+  returnInstance(s) { this._pool.push(s); }
+};
+
+const BurstFlash = {
+  active: [], _pool: [],
+  add(x, y, radius) {
+    const b = this._pool.pop() || {};
+    b.x = x; b.y = y; b.radius = radius;
+    this.active.push(b);
+  },
+  returnInstance(b) { this._pool.push(b); }
+};
+
+function crysanthemumShell(size) {
+  size = size || 1;
+  const glitter = Math.random() < 0.25;
+  const single = Math.random() < 0.72;
+  const color = single ? randomColor({limitWhite:true}) : [randomColor(), randomColor({notSame:true})];
+  const pistil = single && Math.random() < 0.42;
+  const pistilColor = pistil && makePistilColor(color);
+  const secondColor = single && (Math.random() < 0.2 || color === COLOR.White)
+    ? pistilColor || randomColor({notColor:color, limitWhite:true}) : null;
+  const streamers = !pistil && color !== COLOR.White && Math.random() < 0.42;
+  return {
+    shellSize: size, spreadSize: 300 + size * 100, starLife: 900 + size * 200,
+    starDensity: glitter ? 1.1 : 1.25,
+    color, secondColor,
+    glitter: glitter ? 'light' : '', glitterColor: whiteOrGold(),
+    pistil, pistilColor, streamers
+  };
+}
+function ghostShell(size) {
+  const s = crysanthemumShell(size);
+  s.starLife *= 1.5;
+  const g = randomColor({notColor:COLOR.White});
+  s.streamers = true;
+  const pistil = Math.random() < 0.42;
+  s.color = INVISIBLE; s.secondColor = g; s.glitter = '';
+  s.pistil = pistil; s.pistilColor = pistil && makePistilColor(g);
+  return s;
+}
+function strobeShell(size) {
+  size = size || 1;
+  const color = randomColor({limitWhite:true});
+  return {
+    shellSize:size, spreadSize:280+size*92, starLife:1100+size*200,
+    starLifeVariation:0.40, starDensity:1.1, color,
+    glitter:'light', glitterColor:COLOR.White,
+    strobe:true, strobeColor: Math.random()<0.5?COLOR.White:null,
+    pistil: Math.random()<0.5, pistilColor: makePistilColor(color)
+  };
+}
+function palmShell(size) {
+  size = size || 1;
+  const color = randomColor();
+  const thick = Math.random() < 0.5;
+  return {
+    shellSize:size, color, spreadSize:250+size*75,
+    starDensity: thick?0.15:0.4, starLife:1800+size*200,
+    glitter: thick?'thick':'heavy'
+  };
+}
+function ringShell(size) {
+  size = size || 1;
+  const color = randomColor();
+  const pistil = Math.random() < 0.75;
+  return {
+    shellSize:size, ring:true, color, spreadSize:300+size*100,
+    starLife:900+size*200, starCount:2.2*PI_2*(size+1),
+    pistil, pistilColor: makePistilColor(color),
+    glitter: pistil?'':'light',
+    glitterColor: color===COLOR.Gold?COLOR.Gold:COLOR.White,
+    streamers: Math.random()<0.3
+  };
+}
+function crossetteShell(size) {
+  size = size || 1;
+  const color = randomColor({limitWhite:true});
+  return {
+    shellSize:size, spreadSize:300+size*100,
+    starLife:750+size*160, starLifeVariation:0.4, starDensity:0.85,
+    color, crossette:true,
+    pistil: Math.random()<0.5, pistilColor: makePistilColor(color)
+  };
+}
+function floralShell(size) {
+  size = size || 1;
+  return {
+    shellSize:size, spreadSize:300+size*120, starDensity:0.12,
+    starLife:500+size*50, starLifeVariation:0.5,
+    color: Math.random()<0.65?'random':(Math.random()<0.15?randomColor():[randomColor(),randomColor({notSame:true})]),
+    floral:true
+  };
+}
+function fallingLeavesShell(size) {
+  size = size || 1;
+  return {
+    shellSize:size, color:INVISIBLE, spreadSize:300+size*120,
+    starDensity:0.12, starLife:500+size*50, starLifeVariation:0.5,
+    glitter:'medium', glitterColor:COLOR.Gold, fallingLeaves:true
+  };
+}
+function willowShell(size) {
+  size = size || 1;
+  return {
+    shellSize:size, spreadSize:300+size*100, starDensity:0.6,
+    starLife:3000+size*300, glitter:'willow',
+    glitterColor:COLOR.Gold, color:INVISIBLE
+  };
+}
+function crackleShell(size) {
+  size = size || 1;
+  const color = Math.random()<0.75?COLOR.Gold:randomColor();
+  return {
+    shellSize:size, spreadSize:380+size*75,
+    starDensity:1, starLife:600+size*100, starLifeVariation:0.32,
+    glitter:'light', glitterColor:COLOR.Gold, color, crackle:true,
+    pistil: Math.random()<0.65, pistilColor: makePistilColor(color)
+  };
+}
+function horsetailShell(size) {
+  size = size || 1;
+  const color = randomColor();
+  return {
+    shellSize:size, horsetail:true, color,
+    spreadSize:250+size*38, starDensity:0.9,
+    starLife:2500+size*300, glitter:'medium',
+    glitterColor: Math.random()<0.5?whiteOrGold():color,
+    strobe: color===COLOR.White
+  };
+}
+
+const shellTypes = {
+  Random: randomShell, Crackle: crackleShell, Crossette: crossetteShell,
+  Crysanthemum: crysanthemumShell, 'Falling Leaves': fallingLeavesShell,
+  Floral: floralShell, Ghost: ghostShell, 'Horse Tail': horsetailShell,
+  Palm: palmShell, Ring: ringShell, Strobe: strobeShell, Willow: willowShell
+};
+const shellNames = Object.keys(shellTypes);
+
+function randomShellName() {
+  return Math.random()<0.5 ? 'Crysanthemum' : shellNames[(Math.random()*(shellNames.length-1)+1)|0];
+}
+function randomShell(size) { return shellTypes[randomShellName()](size); }
+function shellFromConfig(size) { return shellTypes['Random'](size); }
+
+function createParticleArc(start, arcLen, count, rnd, factory) {
+  const d = arcLen / count;
+  const end = start + arcLen - d * 0.5;
+  if (end > start) {
+    for (let a = start; a < end; a += d) factory(a + Math.random() * d * rnd);
+  } else {
+    for (let a = start; a > end; a += d) factory(a + Math.random() * d * rnd);
+  }
+}
+function createBurst(count, factory, startAngle, arcLen) {
+  startAngle = startAngle || 0;
+  arcLen = arcLen || PI_2;
+  const R = 0.5 * Math.sqrt(count / Math.PI);
+  const C = 2 * R * Math.PI;
+  const CH = C / 2;
+  for (let i = 0; i <= CH; i++) {
+    const ringAngle = i / CH * PI_HALF;
+    const ringSize = Math.cos(ringAngle);
+    const perFull = C * ringSize;
+    const perArc = perFull * (arcLen / PI_2);
+    const inc = PI_2 / perFull;
+    const offset = Math.random() * inc + startAngle;
+    const maxRnd = inc * 0.33;
+    for (let j = 0; j < perArc; j++) {
+      factory(inc * j + offset + Math.random() * maxRnd, ringSize);
+    }
+  }
+}
+
+function crossetteEffect(star) {
+  const s = Math.random() * PI_HALF;
+  createParticleArc(s, PI_2, 4, 0.5, a => {
+    Star.add(star.x, star.y, star.color, a, Math.random()*0.6+0.75, 600);
+  });
+}
+function floralEffect(star) {
+  createBurst(18, (a, m) => {
+    Star.add(star.x, star.y, star.color, a, m*2.4, 1000+Math.random()*300, star.speedX, star.speedY);
+  });
+  BurstFlash.add(star.x, star.y, 46);
+}
+function fallingLeavesEffect(star) {
+  createBurst(7, (a, m) => {
+    const ns = Star.add(star.x, star.y, INVISIBLE, a, m*2.4, 2400+Math.random()*600, star.speedX, star.speedY);
+    ns.sparkColor = COLOR.Gold;
+    ns.sparkFreq = 144; ns.sparkSpeed = 0.28;
+    ns.sparkLife = 750; ns.sparkLifeVariation = 3.2;
+  });
+  BurstFlash.add(star.x, star.y, 46);
+}
+function crackleEffect(star) {
+  createParticleArc(0, PI_2, 16, 1.8, a => {
+    Spark.add(star.x, star.y, COLOR.Gold, a, Math.pow(Math.random(),0.45)*2.4, 300+Math.random()*200);
+  });
+}
+
+function Shell(opt) {
+  Object.assign(this, opt);
+  this.starLifeVariation = opt.starLifeVariation || 0.125;
+  this.color = opt.color || randomColor();
+  this.glitterColor = opt.glitterColor || this.color;
+  if (!this.starCount) {
+    const d = opt.starDensity || 1;
+    const s = this.spreadSize / 54;
+    this.starCount = Math.max(6, s * s * d);
+  }
+}
+Shell.prototype.launch = function(position, launchHeight) {
+  const w = stageW, h = stageH;
+  const hpad = 60, vpad = 50;
+  const minH = h - h * 0.45;
+  const lx = position * (w - hpad*2) + hpad;
+  const ly = h;
+  const by = minH - launchHeight * (minH - vpad);
+  const dist = ly - by;
+  const v = Math.pow(dist * 0.04, 0.64);
+
+  const comet = this.comet = Star.add(
+    lx, ly,
+    typeof this.color === 'string' && this.color !== 'random' ? this.color : COLOR.White,
+    Math.PI,
+    v * (this.horsetail ? 1.2 : 1),
+    v * (this.horsetail ? 100 : 400)
+  );
+  comet.heavy = true;
+  comet.spinRadius = 0.32 + Math.random() * 0.53;
+  comet.sparkFreq = 32;
+  comet.sparkLife = 320;
+  comet.sparkLifeVariation = 3;
+  if (this.glitter === 'willow' || this.fallingLeaves) {
+    comet.sparkFreq = 20; comet.sparkSpeed = 0.5; comet.sparkLife = 500;
+  }
+  if (this.color === INVISIBLE) comet.sparkColor = COLOR.Gold;
+  if (Math.random() > 0.4 && !this.horsetail) {
+    comet.secondColor = INVISIBLE;
+    comet.transitionTime = Math.pow(Math.random(),1.5)*700 + 500;
+  }
+  const self = this;
+  comet.onDeath = function(c) { self.burst(c.x, c.y); };
+};
+Shell.prototype.burst = function(x, y) {
+  const speed = this.spreadSize / 96;
+  let color, onDeath, sparkFreq, sparkSpeed, sparkLife, sparkLifeVariation = 0.25;
+
+  if (this.crossette) onDeath = crossetteEffect;
+  if (this.crackle) onDeath = crackleEffect;
+  if (this.floral) onDeath = floralEffect;
+  if (this.fallingLeaves) onDeath = fallingLeavesEffect;
+
+  if (this.glitter === 'light') { sparkFreq=400; sparkSpeed=0.3; sparkLife=300; sparkLifeVariation=2; }
+  else if (this.glitter === 'medium') { sparkFreq=200; sparkSpeed=0.44; sparkLife=700; sparkLifeVariation=2; }
+  else if (this.glitter === 'heavy') { sparkFreq=80; sparkSpeed=0.8; sparkLife=1400; sparkLifeVariation=2; }
+  else if (this.glitter === 'thick') { sparkFreq=16; sparkSpeed=1.5; sparkLife=1400; sparkLifeVariation=3; }
+  else if (this.glitter === 'streamer') { sparkFreq=32; sparkSpeed=1.05; sparkLife=620; sparkLifeVariation=2; }
+  else if (this.glitter === 'willow') { sparkFreq=120; sparkSpeed=0.34; sparkLife=1400; sparkLifeVariation=3.8; }
+
+  const self = this;
+  const starFactory = function(angle, speedMult) {
+    const std = self.spreadSize / 1800;
+    const star = Star.add(
+      x, y, color || randomColor(), angle, speedMult * speed,
+      self.starLife + Math.random() * self.starLife * self.starLifeVariation,
+      self.horsetail && self.comet ? self.comet.speedX : 0,
+      self.horsetail && self.comet ? self.comet.speedY : -std
+    );
+    if (self.secondColor) {
+      star.transitionTime = self.starLife * (Math.random()*0.05 + 0.32);
+      star.secondColor = self.secondColor;
+    }
+    if (self.strobe) {
+      star.transitionTime = self.starLife * (Math.random()*0.08 + 0.46);
+      star.strobe = true;
+      star.strobeFreq = Math.random()*20 + 40;
+      if (self.strobeColor) star.secondColor = self.strobeColor;
+    }
+    star.onDeath = onDeath;
+    if (self.glitter) {
+      star.sparkFreq = sparkFreq;
+      star.sparkSpeed = sparkSpeed;
+      star.sparkLife = sparkLife;
+      star.sparkLifeVariation = sparkLifeVariation;
+      star.sparkColor = self.glitterColor;
+      star.sparkTimer = Math.random() * sparkFreq;
+    }
+  };
+
+  if (typeof this.color === 'string') {
+    color = this.color === 'random' ? null : this.color;
+    if (this.ring) {
+      const ringStart = Math.random() * Math.PI;
+      const squash = Math.pow(Math.random(),2)*0.85 + 0.15;
+      createParticleArc(0, PI_2, this.starCount, 0, a => {
+        const ix = Math.sin(a) * speed * squash;
+        const iy = Math.cos(a) * speed;
+        const ns = Math.sqrt(ix*ix + iy*iy);
+        const na = Math.atan2(iy, ix) + ringStart;
+        const star = Star.add(x, y, color, na, ns, this.starLife + Math.random()*this.starLife*this.starLifeVariation);
+        if (this.glitter) {
+          star.sparkFreq = sparkFreq; star.sparkSpeed = sparkSpeed;
+          star.sparkLife = sparkLife; star.sparkLifeVariation = sparkLifeVariation;
+          star.sparkColor = this.glitterColor;
+          star.sparkTimer = Math.random() * sparkFreq;
+        }
+      });
+    } else {
+      createBurst(this.starCount, starFactory);
+    }
+  } else if (Array.isArray(this.color)) {
+    if (Math.random() < 0.5) {
+      const s = Math.random() * Math.PI;
+      color = this.color[0]; createBurst(this.starCount, starFactory, s, Math.PI);
+      color = this.color[1]; createBurst(this.starCount, starFactory, s + Math.PI, Math.PI);
+    } else {
+      color = this.color[0]; createBurst(this.starCount/2, starFactory);
+      color = this.color[1]; createBurst(this.starCount/2, starFactory);
+    }
+  }
+
+  if (this.pistil) {
+    new Shell({
+      spreadSize: this.spreadSize*0.5,
+      starLife: this.starLife*0.6,
+      starLifeVariation: this.starLifeVariation,
+      starDensity: 1.4,
+      color: this.pistilColor,
+      glitter: 'light',
+      glitterColor: this.pistilColor === COLOR.Gold ? COLOR.Gold : COLOR.White
+    }).burst(x, y);
+  }
+  if (this.streamers) {
+    new Shell({
+      spreadSize: this.spreadSize*0.9,
+      starLife: this.starLife*0.8,
+      starLifeVariation: this.starLifeVariation,
+      starCount: Math.floor(Math.max(6, this.spreadSize/45)),
+      color: COLOR.White,
+      glitter: 'streamer'
+    }).burst(x, y);
+  }
+  BurstFlash.add(x, y, this.spreadSize / 4);
+};
+
+function Stage(id) {
+  this.canvas = document.getElementById(id);
+  this.ctx = this.canvas.getContext('2d');
+  this.dpr = window.devicePixelRatio || 1;
+  this.width = 0; this.height = 0;
+}
+Stage.prototype.resize = function(w, h) {
+  this.width = w; this.height = h;
+  this.canvas.width = w * this.dpr;
+  this.canvas.height = h * this.dpr;
+  this.canvas.style.width = w + 'px';
+  this.canvas.style.height = h + 'px';
+  this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+};
+
+let trailsStage, mainStage;
+let paused = false;
+let currentFrame = 0;
+let lastTime = performance.now();
+let autoTimer = 0;
+let fwStarted = false;
+
+function handleResize() {
+  const w = Math.min(window.innerWidth, MAX_WIDTH);
+  const h = window.innerWidth <= 420 ? window.innerHeight : Math.min(window.innerHeight, MAX_HEIGHT);
+  trailsStage.resize(w, h);
+  mainStage.resize(w, h);
+  stageW = w; stageH = h;
+}
+
+function getRandomShellSize() {
+  const base = IS_MOBILE ? 2 : 3;
+  const maxVar = Math.min(2.5, base);
+  const variance = Math.random() * maxVar;
+  const size = base - variance;
+  const height = maxVar === 0 ? Math.random() : 1 - variance/maxVar;
+  const off = Math.random() * (1 - height*0.65) * 0.5;
+  const x = Math.random() < 0.5 ? 0.5 - off : 0.5 + off;
+  return { size, x: x*0.64 + 0.18, height: height*0.75 };
+}
+
+function launchShell(event) {
+  const size = getRandomShellSize();
+  const shell = new Shell(shellFromConfig(size.size));
+  const w = mainStage.width, h = mainStage.height;
+  shell.launch(
+    event ? event.x / w : size.x,
+    event ? 1 - event.y / h : size.height
+  );
+}
+
+function update(dt) {
+  if (paused) return;
+  currentFrame++;
+  const timeStep = dt * simSpeed;
+  const speed = simSpeed;
+  const starDrag = 1 - (1 - Star.airDrag) * speed;
+  const starDragHeavy = 1 - (1 - Star.airDragHeavy) * speed;
+  const sparkDrag = 1 - (1 - Spark.airDrag) * speed;
+  const gAcc = timeStep / 1000 * GRAVITY;
+
+  COLOR_CODES_W_INVIS.forEach(color => {
+    const stars = Star.active[color];
+    for (let i = stars.length - 1; i >= 0; i--) {
+      const star = stars[i];
+      if (star.updateFrame === currentFrame) continue;
+      star.updateFrame = currentFrame;
+      star.life -= timeStep;
+      if (star.life <= 0) { stars.splice(i, 1); Star.returnInstance(star); continue; }
+      const burn = Math.pow(star.life / star.fullLife, 0.5);
+      star.prevX = star.x; star.prevY = star.y;
+      star.x += star.speedX * speed;
+      star.y += star.speedY * speed;
+      if (!star.heavy) { star.speedX *= starDrag; star.speedY *= starDrag; }
+      else { star.speedX *= starDragHeavy; star.speedY *= starDragHeavy; }
+      star.speedY += gAcc;
+      if (star.spinRadius) {
+        star.spinAngle += star.spinSpeed * speed;
+        star.x += Math.sin(star.spinAngle) * star.spinRadius * speed;
+        star.y += Math.cos(star.spinAngle) * star.spinRadius * speed;
+      }
+      if (star.sparkFreq) {
+        star.sparkTimer -= timeStep;
+        while (star.sparkTimer < 0) {
+          star.sparkTimer += star.sparkFreq * 0.75 + star.sparkFreq * (1 - burn) * 4;
+          Spark.add(star.x, star.y, star.sparkColor, Math.random()*PI_2,
+            Math.random()*star.sparkSpeed*burn,
+            star.sparkLife*0.8 + Math.random()*star.sparkLifeVariation*star.sparkLife);
+        }
+      }
+      if (star.life < star.transitionTime) {
+        if (star.secondColor && !star.colorChanged) {
+          star.colorChanged = true;
+          star.color = star.secondColor;
+          stars.splice(i, 1);
+          Star.active[star.secondColor].push(star);
+          if (star.secondColor === INVISIBLE) star.sparkFreq = 0;
+        }
+        if (star.strobe) {
+          star.visible = Math.floor(star.life / star.strobeFreq) % 3 === 0;
+        }
+      }
+    }
+    const sparks = Spark.active[color];
+    for (let i = sparks.length - 1; i >= 0; i--) {
+      const s = sparks[i];
+      s.life -= timeStep;
+      if (s.life <= 0) { sparks.splice(i, 1); Spark.returnInstance(s); continue; }
+      s.prevX = s.x; s.prevY = s.y;
+      s.x += s.speedX * speed;
+      s.y += s.speedY * speed;
+      s.speedX *= sparkDrag;
+      s.speedY *= sparkDrag;
+      s.speedY += gAcc;
+    }
+  });
+
+  autoTimer -= timeStep;
+  if (autoTimer <= 0) {
+    launchShell(null);
+    autoTimer = 900 + Math.random() * 1200;
+  }
+
+  render(speed);
+}
+
+function render(speed) {
+  const trailsCtx = trailsStage.ctx;
+  const mainCtx = mainStage.ctx;
+  const w = stageW, h = stageH;
+
+  trailsCtx.globalCompositeOperation = 'source-over';
+  trailsCtx.fillStyle = 'rgba(0,0,0,' + (0.175 * speed) + ')';
+  trailsCtx.fillRect(0, 0, w, h);
+  mainCtx.clearRect(0, 0, w, h);
+
+  while (BurstFlash.active.length) {
+    const bf = BurstFlash.active.pop();
+    const g = trailsCtx.createRadialGradient(bf.x, bf.y, 0, bf.x, bf.y, bf.radius);
+    g.addColorStop(0.024, 'rgba(255,255,255,1)');
+    g.addColorStop(0.125, 'rgba(255,160,20,0.2)');
+    g.addColorStop(0.32, 'rgba(255,140,20,0.11)');
+    g.addColorStop(1, 'rgba(255,120,20,0)');
+    trailsCtx.fillStyle = g;
+    trailsCtx.fillRect(bf.x - bf.radius, bf.y - bf.radius, bf.radius*2, bf.radius*2);
+    BurstFlash.returnInstance(bf);
+  }
+
+  trailsCtx.globalCompositeOperation = 'lighten';
+  trailsCtx.lineWidth = Star.drawWidth;
+  trailsCtx.lineCap = 'round';
+  mainCtx.strokeStyle = '#fff';
+  mainCtx.lineWidth = 1;
+  mainCtx.beginPath();
+
+  COLOR_CODES.forEach(color => {
+    const stars = Star.active[color];
+    trailsCtx.strokeStyle = color;
+    trailsCtx.beginPath();
+    for (let i = 0; i < stars.length; i++) {
+      const star = stars[i];
+      if (star.visible) {
+        trailsCtx.moveTo(star.x, star.y);
+        trailsCtx.lineTo(star.prevX, star.prevY);
+        mainCtx.moveTo(star.x, star.y);
+        mainCtx.lineTo(star.x - star.speedX*1.6, star.y - star.speedY*1.6);
+      }
+    }
+    trailsCtx.stroke();
+  });
+  mainCtx.stroke();
+
+  trailsCtx.lineWidth = Spark.drawWidth;
+  trailsCtx.lineCap = 'butt';
+  COLOR_CODES.forEach(color => {
+    const sparks = Spark.active[color];
+    trailsCtx.strokeStyle = color;
+    trailsCtx.beginPath();
+    for (let i = 0; i < sparks.length; i++) {
+      const s = sparks[i];
+      trailsCtx.moveTo(s.x, s.y);
+      trailsCtx.lineTo(s.prevX, s.prevY);
+    }
+    trailsCtx.stroke();
+  });
+}
+
+function loop(now) {
+  let dt = now - lastTime;
+  lastTime = now;
+  if (dt < 0) dt = 17;
+  if (dt > 68) dt = 68;
+  update(dt);
+  requestAnimationFrame(loop);
+}
+
+function startFireworks() {
+  if (fwStarted) return;
+  fwStarted = true;
+
+  trailsStage = new Stage('trails-canvas');
+  mainStage = new Stage('main-canvas');
+
+  handleResize();
+  window.addEventListener('resize', handleResize);
+
+  // 烟花层接收点击，增加烟花
+  const fwLayer = document.getElementById('fireworks-layer');
+  fwLayer.addEventListener('mousedown', e => {
+    const rect = mainStage.canvas.getBoundingClientRect();
+    launchShell({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+  });
+  fwLayer.addEventListener('touchstart', e => {
+    e.preventDefault();
+    const t = e.touches[0];
+    const rect = mainStage.canvas.getBoundingClientRect();
+    launchShell({ x: t.clientX - rect.left, y: t.clientY - rect.top });
+  }, { passive: false });
+
+  document.addEventListener('keydown', e => {
+    if (e.keyCode === 80) paused = !paused;
+  });
+
+  // 开局先放几发
+  setTimeout(() => launchShell(null), 300);
+  setTimeout(() => launchShell(null), 900);
+  setTimeout(() => launchShell(null), 1500);
+
+  requestAnimationFrame(loop);
+}
+</script>
+</body>
+</html>
